@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'notes_page.dart';
 import 'reminders_page.dart';
 import 'pomodoro_timer.dart';
+import '../theme/theme_provider.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,7 +21,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  // Daftar halaman untuk ditampilkan berdasarkan indeks
   static const List<Widget> _pages = <Widget>[
     NotesListPage(),
     RemindersListPage(),
@@ -28,6 +29,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -35,16 +38,21 @@ class _HomePageState extends State<HomePage> {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF2E2E2E),
           ),
         ),
-        backgroundColor: const Color(0xFFCCCBCA),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(
+              themeProvider.isDarkMode ? Icons.wb_sunny : Icons.nightlight_round,
+            ),
+            onPressed: () {
+              themeProvider.toggleTheme();
+            },
+          ),
+        ],
       ),
-      body: Container(
-        color: const Color(0xFFF2F0EF),
-        child: _pages[_selectedIndex], // Menampilkan halaman sesuai indeks
-      ),
+      body: _pages[_selectedIndex], // Background diatur oleh scaffoldBackgroundColor
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -61,9 +69,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: const Color(0xFF2E2E2E),
-        unselectedItemColor: Colors.grey,
-        backgroundColor: const Color(0xFFCCCBCA),
         onTap: _onItemTapped,
       ),
     );

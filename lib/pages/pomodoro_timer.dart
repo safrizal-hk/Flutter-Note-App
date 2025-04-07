@@ -9,11 +9,11 @@ class PomodoroTimerPage extends StatefulWidget {
 }
 
 class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
-  int _focusMinutes = 25; // Default waktu fokus
-  int _breakMinutes = 5;  // Default waktu istirahat
-  int _remainingSeconds = 25 * 60; // Default dalam detik
+  int _focusMinutes = 25;
+  int _breakMinutes = 5;
+  int _remainingSeconds = 25 * 60;
   bool _isRunning = false;
-  bool _isFocus = true; // True untuk fokus, False untuk istirahat
+  bool _isFocus = true;
   Timer? _timer;
 
   void _startTimer() {
@@ -28,7 +28,7 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
           } else {
             _timer?.cancel();
             _isRunning = false;
-            _isFocus = !_isFocus; // Ganti mode fokus/istirahat
+            _isFocus = !_isFocus;
             _remainingSeconds = (_isFocus ? _focusMinutes : _breakMinutes) * 60;
             _showCompletionDialog();
           }
@@ -93,7 +93,7 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
           _focusMinutes = result['focusMinutes'];
           _breakMinutes = result['breakMinutes'];
           if (!_isRunning) {
-            _remainingSeconds = _focusMinutes * 60; // Reset hanya jika timer tidak berjalan
+            _remainingSeconds = _focusMinutes * 60;
           }
         });
       }
@@ -115,19 +115,14 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        color: const Color(0xFFF2F0EF),
+      body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               _isFocus ? 'Fokus' : 'Istirahat',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF2E2E2E),
-              ),
+              style: Theme.of(context).textTheme.labelLarge,
             ),
             const SizedBox(height: 20),
             Text(
@@ -135,7 +130,6 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
               style: const TextStyle(
                 fontSize: 48,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF2E2E2E),
               ),
             ),
             const SizedBox(height: 40),
@@ -145,8 +139,6 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
                 ElevatedButton(
                   onPressed: _isRunning ? _pauseTimer : _startTimer,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E2E2E),
-                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -158,7 +150,7 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
                 ElevatedButton(
                   onPressed: _resetTimer,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey,
+                    backgroundColor: Colors.grey, // Tetap gunakan grey untuk reset
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     shape: RoundedRectangleBorder(
@@ -174,9 +166,8 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToSettings,
-        backgroundColor: const Color(0xFF2E2E2E),
         elevation: 4,
-        child: const Icon(Icons.settings, color: Colors.white),
+        child: const Icon(Icons.settings),
       ),
     );
   }
@@ -223,15 +214,12 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF2E2E2E),
           ),
         ),
-        backgroundColor: const Color(0xFFCCCBCA),
         centerTitle: true,
         elevation: 0,
       ),
-      body: Container(
-        color: const Color(0xFFF2F0EF),
+      body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -239,33 +227,17 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
             TextField(
               controller: _focusController,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Waktu Fokus (menit)',
-                labelStyle: const TextStyle(color: Color(0xFF2E2E2E)),
-                filled: true,
-                fillColor: const Color(0xFFCCCBCA).withOpacity(0.5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
               ),
-              style: const TextStyle(color: Color(0xFF2E2E2E)),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _breakController,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Waktu Istirahat (menit)',
-                labelStyle: const TextStyle(color: Color(0xFF2E2E2E)),
-                filled: true,
-                fillColor: const Color(0xFFCCCBCA).withOpacity(0.5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
               ),
-              style: const TextStyle(color: Color(0xFF2E2E2E)),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
@@ -278,8 +250,6 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
                 });
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E2E2E),
-                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),

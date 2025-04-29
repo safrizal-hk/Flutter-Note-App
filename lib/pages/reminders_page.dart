@@ -22,12 +22,62 @@ class _RemindersListPageState extends State<RemindersListPage> {
   }
 
   void _deleteReminder(DateTime date, String id) {
-    setState(() {
-      _reminders[date]?.removeWhere((reminder) => reminder['id'] == id);
-      if (_reminders[date]?.isEmpty ?? false) {
-        _reminders.remove(date);
-      }
-    });
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12), // Sudut membulat
+        ),
+        title: Text(
+          'Delete Confirmation',
+          style: Theme.of(context).textTheme.headlineSmall, // Menggunakan textTheme dari tema
+        ),
+        content: Text(
+          'Are you sure you want to delete this reminder?',
+          style: Theme.of(context).textTheme.bodyMedium, // Menggunakan textTheme dari tema
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Tutup dialog tanpa menghapus
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).textTheme.bodyMedium?.color, // Warna teks dari tema
+            ),
+            child: const Text(
+              'No',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _reminders[date]?.removeWhere((reminder) => reminder['id'] == id); // Hapus reminder
+                if (_reminders[date]?.isEmpty ?? false) {
+                  _reminders.remove(date);
+                }
+              });
+              Navigator.pop(context); // Tutup dialog setelah menghapus
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red, // Warna merah untuk aksi hapus
+            ),
+            child: const Text(
+              'Yes',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+        backgroundColor: Theme.of(context).dialogTheme.backgroundColor, // Background dari tema
+        elevation: 4, // Bayangan ringan
+      ),
+    );
   }
 
   void _addReminder(DateTime date, String task) {
@@ -62,7 +112,10 @@ class _RemindersListPageState extends State<RemindersListPage> {
           ? const Center(
               child: Text(
                 'No reminders yet',
-                style: TextStyle(fontSize: 18),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             )
           : ListView(
@@ -196,7 +249,13 @@ class _ReminderCreatePageState extends State<ReminderCreatePage> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text('Save Reminder'),
+              child: const Text(
+                'Save Reminder',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         ),

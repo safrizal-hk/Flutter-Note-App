@@ -11,10 +11,60 @@ class _NotesListPageState extends State<NotesListPage> {
   final List<Map<String, String>> _notes = [];
 
   void _deleteNote(String id) {
-    setState(() {
-      _notes.removeWhere((note) => note['id'] == id);
-    });
-  }
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12), // Sudut membulat sesuai tema aplikasi
+      ),
+      title: Text(
+        'Delete Confirmation',
+        style: Theme.of(context).textTheme.headlineSmall, // Menggunakan textTheme dari tema
+      ),
+      content: Text(
+        'Are you sure you want to delete this reminder?',
+        style: Theme.of(context).textTheme.bodyMedium, // Menggunakan textTheme dari tema
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context); // Tutup dialog tanpa menghapus
+          },
+          style: TextButton.styleFrom(
+            foregroundColor: Theme.of(context).textTheme.bodyMedium?.color, // Warna teks dari tema
+          ),
+          child: const Text(
+            'No',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _notes.removeWhere((note) => note['id'] == id); // Hapus note
+            });
+            Navigator.pop(context); // Tutup dialog setelah menghapus
+          },
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.red, // Warna merah untuk aksi hapus
+          ),
+          child: const Text(
+            'Yes',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+      backgroundColor: Theme.of(context).dialogTheme.backgroundColor, // Background dari tema
+      elevation: 4, // Bayangan ringan
+    ),
+  );
+}
 
   void _navigateToCreateNotePage() {
     Navigator.push(
@@ -91,7 +141,7 @@ class _NotesListPageState extends State<NotesListPage> {
                         ),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteNote(note['id']!),
+                          onPressed: () => _deleteNote(note['id']!), // Panggil fungsi dengan konfirmasi
                         ),
                         onTap: () => _navigateToEditNotePage(note),
                       ),
@@ -133,7 +183,7 @@ class NoteCreatePage extends StatelessWidget {
         centerTitle: true,
         elevation: 0,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -149,8 +199,11 @@ class NoteCreatePage extends StatelessWidget {
               controller: _contentController,
               decoration: const InputDecoration(
                 labelText: 'Content',
+                alignLabelWithHint: true,
               ),
-              maxLines: 5,
+              minLines: 5,
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
             ),
             const SizedBox(height: 24),
             ElevatedButton(

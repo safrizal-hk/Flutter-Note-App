@@ -4,6 +4,7 @@ import 'notes_page.dart';
 import 'reminders_page.dart';
 import 'pomodoro_timer.dart';
 import '../theme/theme_provider.dart';
+import 'settings_page.dart'; // Tambahkan import untuk halaman pengaturan
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -34,13 +35,23 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Note App',
+          'Task Pop',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
         ),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.menu), // Ikon hamburger untuk menu
+          onPressed: () {
+            // Navigasi ke halaman pengaturan
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SettingsPage()),
+            );
+          },
+        ),
         actions: [
           IconButton(
             icon: Icon(

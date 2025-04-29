@@ -228,7 +228,7 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
               controller: _focusController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Waktu Fokus (menit)',
+                labelText: 'Focus Time (minute)',
               ),
             ),
             const SizedBox(height: 16),
@@ -236,7 +236,7 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
               controller: _breakController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Waktu Istirahat (menit)',
+                labelText: 'Break Time (minute)',
               ),
             ),
             const SizedBox(height: 24),
@@ -257,7 +257,7 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
                 elevation: 2,
               ),
               child: const Text(
-                'Simpan',
+                'Save Settings',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,

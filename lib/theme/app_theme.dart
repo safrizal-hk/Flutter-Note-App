@@ -4,106 +4,106 @@ class AppTheme {
   static final ThemeData lightTheme = ThemeData(
     brightness: Brightness.light,
     fontFamily: 'Poppins',
-    scaffoldBackgroundColor: const Color(0xFFF2F0EF),
+    scaffoldBackgroundColor: const Color(0xFFFFFFFF), // Putih
     appBarTheme: const AppBarTheme(
-      backgroundColor: Color(0xFFCCCBCA),
-      foregroundColor: Color(0xFF2E2E2E),
+      backgroundColor: Color(0xFFFFFFFF), // Putih
+      foregroundColor: Color(0xFF000000), // Hitam
     ),
     cardTheme: const CardTheme(
-      color: Color(0xFFCCCBCA),
+      color: Color(0xFFFFFFFF), // Putih
     ),
     textTheme: const TextTheme(
-      bodyLarge: TextStyle(color: Color(0xFF2E2E2E)),
-      bodyMedium: TextStyle(color: Color(0xFF2E2E2E)),
-      titleLarge: TextStyle(color: Color(0xFF2E2E2E), fontWeight: FontWeight.bold),
-      headlineSmall: TextStyle(color: Color(0xFF2E2E2E), fontSize: 18, fontWeight: FontWeight.bold),
-      labelLarge: TextStyle(color: Color(0xFF2E2E2E), fontSize: 24, fontWeight: FontWeight.w600),
+      bodyLarge: TextStyle(color: Color(0xFF000000)),
+      bodyMedium: TextStyle(color: Color(0xFF000000)),
+      titleLarge: TextStyle(color: Color(0xFF000000), fontWeight: FontWeight.bold),
+      headlineSmall: TextStyle(color: Color(0xFF000000), fontSize: 18, fontWeight: FontWeight.bold),
+      labelLarge: TextStyle(color: Color(0xFF000000), fontSize: 24, fontWeight: FontWeight.w600),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF2E2E2E),
-        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFF000000), // Hitam
+        foregroundColor: Color(0xFFFFFFFF), // Putih
       ),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: Color(0xFF2E2E2E),
-      foregroundColor: Colors.white,
+      backgroundColor: Color(0xFF000000), // Hitam
+      foregroundColor: Color(0xFFFFFFFF), // Putih
     ),
     inputDecorationTheme: const InputDecorationTheme(
-      labelStyle: TextStyle(color: Colors.grey),
+      labelStyle: TextStyle(color: Color(0xFF000000)),
       filled: true,
-      fillColor: Color(0xFFCCCBCA), // Warna background TextField
+      fillColor: Color(0xFFFFFFFF), // Putih
       border: OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(10)),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: Color(0xFF2E2E2E)),
+        borderSide: BorderSide(color: Color(0xFF000000)), // Hitam
         borderRadius: BorderRadius.all(Radius.circular(10)),
       ),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: Color(0xFFCCCBCA),
-      selectedItemColor: Color(0xFF2E2E2E),
-      unselectedItemColor: Colors.grey,
+      backgroundColor: Color(0xFFFFFFFF), // Putih
+      selectedItemColor: Color(0xFF000000), // Hitam
+      unselectedItemColor: Color(0xFF000000), // Hitam
     ),
     dialogTheme: const DialogTheme(
-      backgroundColor: Color(0xFFF2F0EF),
-      titleTextStyle: TextStyle(color: Color(0xFF2E2E2E), fontSize: 20, fontWeight: FontWeight.bold),
-      contentTextStyle: TextStyle(color: Color(0xFF2E2E2E)),
+      backgroundColor: Color(0xFFFFFFFF), // Putih
+      titleTextStyle: TextStyle(color: Color(0xFF000000), fontSize: 20, fontWeight: FontWeight.bold),
+      contentTextStyle: TextStyle(color: Color(0xFF000000)),
     ),
   );
 
   static final ThemeData darkTheme = ThemeData(
     brightness: Brightness.dark,
     fontFamily: 'Poppins',
-    scaffoldBackgroundColor: const Color(0xFF1E1E1E),
+    scaffoldBackgroundColor: const Color(0xFF000000), // Hitam
     appBarTheme: const AppBarTheme(
-      backgroundColor: Color(0xFF2E2E2E),
-      foregroundColor: Colors.white,
+      backgroundColor: Color(0xFF000000), // Hitam
+      foregroundColor: Color(0xFFFFFFFF), // Putih
     ),
     cardTheme: const CardTheme(
-      color: Color(0xFF2E2E2E),
+      color: Color(0xFF000000), // Hitam
     ),
     textTheme: const TextTheme(
-      bodyLarge: TextStyle(color: Colors.white),
-      bodyMedium: TextStyle(color: Colors.white),
-      titleLarge: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-      headlineSmall: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-      labelLarge: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600),
+      bodyLarge: TextStyle(color: Color(0xFFFFFFFF)),
+      bodyMedium: TextStyle(color: Color(0xFFFFFFFF)),
+      titleLarge: TextStyle(color: Color(0xFFFFFFFF), fontWeight: FontWeight.bold),
+      headlineSmall: TextStyle(color: Color(0xFFFFFFFF), fontSize: 18, fontWeight: FontWeight.bold),
+      labelLarge: TextStyle(color: Color(0xFFFFFFFF), fontSize: 24, fontWeight: FontWeight.w600),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: Color(0xFFFFFFFF), // Putih
+        foregroundColor: Color(0xFF000000), // Hitam
       ),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: Colors.white,
-      foregroundColor: Color(0xFF1E1E1E),
+      backgroundColor: Color(0xFFFFFFFF), // Putih
+      foregroundColor: Color(0xFF000000), // Hitam
     ),
     inputDecorationTheme: const InputDecorationTheme(
-      labelStyle: TextStyle(color: Colors.grey),
+      labelStyle: TextStyle(color: Color(0xFFFFFFFF)),
       filled: true,
-      fillColor: Color(0xFF2E2E2E), // Warna background TextField
+      fillColor: Color(0xFF000000), // Hitam
       border: OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(10)),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: Colors.white),
+        borderSide: BorderSide(color: Color(0xFFFFFFFF)), // Putih
         borderRadius: BorderRadius.all(Radius.circular(10)),
       ),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: Color(0xFF2E2E2E),
-      selectedItemColor: Colors.white,
-      unselectedItemColor: Colors.grey,
+      backgroundColor: Color(0xFF000000), // Hitam
+      selectedItemColor: Color(0xFFFFFFFF), // Putih
+      unselectedItemColor: Color(0xFFFFFFFF), // Putih
     ),
     dialogTheme: const DialogTheme(
-      backgroundColor: Color(0xFF2E2E2E),
-      titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-      contentTextStyle: TextStyle(color: Colors.white),
+      backgroundColor: Color(0xFF000000), // Hitam
+      titleTextStyle: TextStyle(color: Color(0xFFFFFFFF), fontSize: 20, fontWeight: FontWeight.bold),
+      contentTextStyle: TextStyle(color: Color(0xFFFFFFFF)),
     ),
   );
 }

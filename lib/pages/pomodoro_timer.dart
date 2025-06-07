@@ -167,7 +167,9 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToSettings,
         elevation: 4,
-        child: const Icon(Icons.settings),
+        shape:
+                  const CircleBorder(), // Tambahkan ini agar benar-benar lingkaran
+              child: const Icon(Icons.settings),
       ),
     );
   }

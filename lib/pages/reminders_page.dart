@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
+import 'package:numberpicker/numberpicker.dart';
 
 class RemindersListPage extends StatefulWidget {
   const RemindersListPage({super.key});
@@ -9,40 +10,55 @@ class RemindersListPage extends StatefulWidget {
   State<RemindersListPage> createState() => _RemindersListPageState();
 }
 
-class _RemindersListPageState extends State<RemindersListPage> {
+class _RemindersListPageState extends State<RemindersListPage>
+    with SingleTickerProviderStateMixin {
   final Map<DateTime, List<Map<String, dynamic>>> _reminders = {};
+  DateTime _focusedDay = DateTime.now();
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
-  void _toggleReminder(DateTime date, String id) {
-    setState(() {
-      final reminder = _reminders[date]?.firstWhere((r) => r['id'] == id);
-      if (reminder != null) {
-        reminder['isCompleted'] = !reminder['isCompleted'];
-      }
-    });
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _animationController.forward();
   }
 
-  void _deleteReminder(DateTime date, String id) {
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _deleteReminder(DateTime date, String id, Function closeBottomSheet) {
+    final normalizedDate = DateTime(date.year, date.month, date.day);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12), // Sudut membulat
+          borderRadius: BorderRadius.circular(12),
         ),
         title: Text(
           'Delete Confirmation',
-          style: Theme.of(context).textTheme.headlineSmall, // Menggunakan textTheme dari tema
+          style: Theme.of(context).dialogTheme.titleTextStyle,
         ),
         content: Text(
           'Are you sure you want to delete this reminder?',
-          style: Theme.of(context).textTheme.bodyMedium, // Menggunakan textTheme dari tema
+          style: Theme.of(context).dialogTheme.contentTextStyle,
         ),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // Tutup dialog tanpa menghapus
+              Navigator.pop(context);
             },
             style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).textTheme.bodyMedium?.color, // Warna teks dari tema
+              foregroundColor: Theme.of(context).textTheme.bodyMedium?.color,
             ),
             child: const Text(
               'No',
@@ -55,15 +71,17 @@ class _RemindersListPageState extends State<RemindersListPage> {
           TextButton(
             onPressed: () {
               setState(() {
-                _reminders[date]?.removeWhere((reminder) => reminder['id'] == id); // Hapus reminder
-                if (_reminders[date]?.isEmpty ?? false) {
-                  _reminders.remove(date);
+                _reminders[normalizedDate]
+                    ?.removeWhere((reminder) => reminder['id'] == id);
+                if (_reminders[normalizedDate]?.isEmpty ?? false) {
+                  _reminders.remove(normalizedDate);
                 }
               });
-              Navigator.pop(context); // Tutup dialog setelah menghapus
+              Navigator.pop(context);
+              closeBottomSheet();
             },
             style: TextButton.styleFrom(
-              foregroundColor: Colors.red, // Warna merah untuk aksi hapus
+              foregroundColor: Colors.red,
             ),
             child: const Text(
               'Yes',
@@ -74,20 +92,42 @@ class _RemindersListPageState extends State<RemindersListPage> {
             ),
           ),
         ],
-        backgroundColor: Theme.of(context).dialogTheme.backgroundColor, // Background dari tema
-        elevation: 4, // Bayangan ringan
+        backgroundColor: Theme.of(context).dialogTheme.backgroundColor,
+        elevation: 4,
       ),
     );
   }
 
-  void _addReminder(DateTime date, String task) {
+  void _updateReminder(DateTime date, String id, String newTask,
+      String newLabel, TimeOfDay newTime) {
+    final normalizedDate = DateTime(date.year, date.month, date.day);
+    setState(() {
+      final reminder =
+          _reminders[normalizedDate]?.firstWhere((r) => r['id'] == id);
+      if (reminder != null) {
+        reminder['task'] = newTask;
+        reminder['label'] = newLabel;
+        reminder['isCompleted'] = newLabel == 'Done';
+        reminder['time'] = newTime;
+      }
+    });
+  }
+
+  void _addReminder(DateTime date, String task, TimeOfDay time) {
+    final normalizedDate = DateTime(date.year, date.month, date.day);
     setState(() {
       final reminderId = DateTime.now().millisecondsSinceEpoch.toString();
-      final newReminder = {'id': reminderId, 'task': task, 'isCompleted': false};
-      if (_reminders[date] == null) {
-        _reminders[date] = [];
+      final newReminder = {
+        'id': reminderId,
+        'task': task,
+        'isCompleted': false,
+        'label': 'To Do',
+        'time': time,
+      };
+      if (_reminders[normalizedDate] == null) {
+        _reminders[normalizedDate] = [];
       }
-      _reminders[date]!.add(newReminder);
+      _reminders[normalizedDate]!.add(newReminder);
     });
   }
 
@@ -101,65 +141,666 @@ class _RemindersListPageState extends State<RemindersListPage> {
   }
 
   String _formatDate(DateTime date) {
-    final DateFormat formatter = DateFormat('EEEE, d MMMM yyyy', 'id_ID');
+    final DateFormat formatter = DateFormat('EEEE, d MMMM yyyy', 'en_US');
     return formatter.format(date);
+  }
+
+  String _formatTime(TimeOfDay time) {
+    final now = DateTime.now();
+    final dateTime =
+        DateTime(now.year, now.month, now.day, time.hour, time.minute);
+    return DateFormat('HH:mm').format(dateTime);
+  }
+
+  TimeOfDay? _parseTime(String input) {
+    final RegExp timeRegExp = RegExp(r'^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$');
+    if (timeRegExp.hasMatch(input)) {
+      final parts = input.split(':');
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+      return TimeOfDay(hour: hour, minute: minute);
+    }
+    return null;
+  }
+
+  void _showTimeEditBottomSheet(
+      BuildContext context, TimeOfDay initialTime, Function(TimeOfDay) onSave) {
+    int hour = initialTime.hour;
+    int minute = initialTime.minute;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Select Time',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      NumberPicker(
+                        value: hour,
+                        minValue: 0,
+                        maxValue: 23,
+                        zeroPad: true,
+                        onChanged: (value) {
+                          setModalState(() {
+                            hour = value;
+                          });
+                        },
+                        textStyle: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: Colors.grey),
+                        selectedTextStyle:
+                            Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const Text(':'),
+                      NumberPicker(
+                        value: minute,
+                        minValue: 0,
+                        maxValue: 59,
+                        zeroPad: true,
+                        onChanged: (value) {
+                          setModalState(() {
+                            minute = value;
+                          });
+                        },
+                        textStyle: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: Colors.grey),
+                        selectedTextStyle:
+                            Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor:
+                              Theme.of(context).textTheme.bodyMedium?.color,
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          final newTime = TimeOfDay(hour: hour, minute: minute);
+                          onSave(newTime);
+                          Navigator.pop(context);
+                        },
+                        style: Theme.of(context)
+                            .elevatedButtonTheme
+                            .style
+                            ?.copyWith(
+                              shape: WidgetStateProperty.all(
+                                RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                        child: Text(
+                          'Set Time',
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context)
+                                        .elevatedButtonTheme
+                                        .style
+                                        ?.foregroundColor
+                                        ?.resolve({}),
+                                  ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showEditReminderBottomSheet(
+      DateTime date, Map<String, dynamic> reminder) {
+    final TextEditingController taskController =
+        TextEditingController(text: reminder['task']);
+    String selectedLabel = reminder['label'];
+    TimeOfDay selectedTime = reminder['time'] ?? TimeOfDay.now();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.5,
+              ),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Edit Reminder',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: taskController,
+                    decoration: const InputDecoration(
+                      labelText: 'Task',
+                    ),
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: () {
+                      _showTimeEditBottomSheet(context, selectedTime,
+                          (newTime) {
+                        setModalState(() {
+                          selectedTime = newTime;
+                        });
+                      });
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Time',
+                      ),
+                      child: Text(
+                        _formatTime(selectedTime),
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedLabel,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(10)),
+                      ),
+                      filled: true,
+                      fillColor:
+                          Theme.of(context).inputDecorationTheme.fillColor,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                    ),
+                    items: ['To Do', 'In Progress', 'Done'].map((String label) {
+                      return DropdownMenuItem<String>(
+                        value: label,
+                        child: Text(
+                          label,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      if (newValue != null) {
+                        setModalState(() {
+                          selectedLabel = newValue;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          _deleteReminder(date, reminder['id'], () {
+                            Navigator.pop(context);
+                          });
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                        child: Text(
+                          'Delete',
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (taskController.text.isNotEmpty) {
+                            _updateReminder(
+                              date,
+                              reminder['id'],
+                              taskController.text,
+                              selectedLabel,
+                              selectedTime,
+                            );
+                            Navigator.pop(context);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Please enter a valid task')),
+                            );
+                          }
+                        },
+                        style: Theme.of(context)
+                            .elevatedButtonTheme
+                            .style
+                            ?.copyWith(
+                              shape: WidgetStateProperty.all(
+                                RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                        child: Text(
+                          'Save',
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context)
+                                        .elevatedButtonTheme
+                                        .style
+                                        ?.foregroundColor
+                                        ?.resolve({}),
+                                  ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  DateTime _getWeekStart(DateTime date) {
+    return date.subtract(Duration(days: date.weekday - 1));
+  }
+
+  List<DateTime> _getWeekDates(DateTime weekStart) {
+    return List.generate(7, (index) => weekStart.add(Duration(days: index)));
   }
 
   @override
   Widget build(BuildContext context) {
+    final normalizedFocusedDay =
+        DateTime(_focusedDay.year, _focusedDay.month, _focusedDay.day);
+    final todayReminders = _reminders[normalizedFocusedDay] ?? [];
+    final weekStart = _getWeekStart(_focusedDay);
+    final weekDates = _getWeekDates(weekStart);
+
+    // Mengurutkan reminder berdasarkan waktu
+    todayReminders.sort((a, b) {
+      final timeA = a['time'] as TimeOfDay;
+      final timeB = b['time'] as TimeOfDay;
+      final dateA = DateTime(2025, 6, 7, timeA.hour, timeA.minute); // Tanggal acuan (6/7/2025)
+      final dateB = DateTime(2025, 6, 7, timeB.hour, timeB.minute); // Tanggal acuan (6/7/2025)
+      return dateA.compareTo(dateB);
+    });
+
     return Scaffold(
-      body: _reminders.isEmpty
-          ? const Center(
-              child: Text(
-                'No reminders yet',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.arrow_left,
+                            color: Theme.of(context).iconTheme.color),
+                        onPressed: () {
+                          setState(() {
+                            _focusedDay =
+                                _focusedDay.subtract(const Duration(days: 7));
+                            _animationController.reset();
+                            _animationController.forward();
+                          });
+                        },
+                      ),
+                      Text(
+                        '${DateFormat('MMMM yyyy', 'en_US').format(weekStart)}', // Menggunakan MMMM untuk nama bulan lengkap
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.arrow_right,
+                            color: Theme.of(context).iconTheme.color),
+                        onPressed: () {
+                          setState(() {
+                            _focusedDay =
+                                _focusedDay.add(const Duration(days: 7));
+                            _animationController.reset();
+                            _animationController.forward();
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 70, // Tinggi tetap fleksibel, bisa disesuaikan
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final availableWidth = constraints.maxWidth;
+                        final itemWidth = (availableWidth - 32) / 7; // Mengurangi padding horizontal (16 * 2)
+
+                        return ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: weekDates.length,
+                          itemBuilder: (context, index) {
+                            final date = weekDates[index];
+                            final isSelected = isSameDay(date, _focusedDay);
+                            final hasReminders = _reminders[
+                                        DateTime(date.year, date.month, date.day)]
+                                    ?.isNotEmpty ??
+                                false;
+
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _focusedDay = date;
+                                  _animationController.reset();
+                                  _animationController.forward();
+                                });
+                              },
+                              child: Container(
+                                width: itemWidth,
+                                margin: const EdgeInsets.symmetric(horizontal: 2),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.white
+                                          : Colors.black
+                                      : Theme.of(context).cardColor,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      DateFormat('EEE', 'en_US').format(date),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: isSelected
+                                            ? Theme.of(context).brightness ==
+                                                    Brightness.dark
+                                                ? const Color.fromARGB(
+                                                    255, 0, 0, 0)
+                                                : Colors.white
+                                            : Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.color,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      date.day.toString(),
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: isSelected
+                                            ? Theme.of(context).brightness ==
+                                                    Brightness.dark
+                                                ? Colors.black
+                                                : Colors.white
+                                            : Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.color,
+                                      ),
+                                    ),
+                                    if (hasReminders) ...[
+                                      const SizedBox(height: 4),
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-            )
-          : ListView(
-              children: _reminders.entries.map((entry) {
-                final date = entry.key;
-                final reminders = entry.value;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: todayReminders.isEmpty
+                  ? Center(
                       child: Text(
-                        _formatDate(date),
-                        style: Theme.of(context).textTheme.headlineSmall, // Gunakan tema
+                        'No reminders for this day',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                      ),
+                    )
+                  : FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: todayReminders.length,
+                        itemBuilder: (context, index) {
+                          final reminder = todayReminders[index];
+                          final time = _formatTime(reminder['time']);
+                          final color = reminder['label'] == 'To Do'
+                              ? Theme.of(context).colorScheme.primary
+                              : reminder['label'] == 'In Progress'
+                                  ? Colors.orange[400]
+                                  : Colors.green[400];
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  width: 60,
+                                  child: Text(
+                                    time,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.color
+                                              ?.withOpacity(0.7),
+                                        ),
+                                  ),
+                                ),
+                                Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Container(
+                                      width: 2,
+                                      height: 80,
+                                      color: Theme.of(context).dividerColor,
+                                    ),
+                                    Container(
+                                      width: 12,
+                                      height: 12,
+                                      decoration: BoxDecoration(
+                                        color: color,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Theme.of(context)
+                                              .scaffoldBackgroundColor,
+                                          width: 2,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () =>
+                                        _showEditReminderBottomSheet(
+                                            normalizedFocusedDay, reminder),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context)
+                                            .scaffoldBackgroundColor,
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                Colors.black.withOpacity(0.05),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 4,
+                                            height: 40,
+                                            color: color,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  reminder['task'],
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodyLarge
+                                                      ?.copyWith(
+                                                        decoration: reminder[
+                                                                'isCompleted']
+                                                            ? TextDecoration
+                                                                .lineThrough
+                                                            : TextDecoration
+                                                                .none,
+                                                      ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        color?.withOpacity(0.2),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            6),
+                                                  ),
+                                                  child: Text(
+                                                    reminder['label'],
+                                                    style: Theme.of(context)
+                                                        .textTheme
+                                                        .bodySmall
+                                                        ?.copyWith(
+                                                          color: color,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Icon(Icons.more_vert,
+                                              size: 20,
+                                              color: Theme.of(context)
+                                                  .iconTheme
+                                                  .color),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ),
-                    ...reminders.map((reminder) {
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        child: CheckboxListTile(
-                          title: Text(
-                            reminder['task'],
-                            style: TextStyle(
-                              decoration: reminder['isCompleted']
-                                  ? TextDecoration.lineThrough
-                                  : TextDecoration.none,
-                            ),
-                          ),
-                          value: reminder['isCompleted'],
-                          onChanged: (value) => _toggleReminder(date, reminder['id']),
-                          secondary: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _deleteReminder(date, reminder['id']),
-                          ),
-                          controlAffinity: ListTileControlAffinity.leading,
-                        ),
-                      );
-                    }).toList(),
-                  ],
-                );
-              }).toList(),
             ),
+          ],
+        ),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _navigateToCreateReminder(context),
+        elevation: 4,
+        shape: const CircleBorder(),
         child: const Icon(Icons.add),
       ),
     );
@@ -167,7 +808,7 @@ class _RemindersListPageState extends State<RemindersListPage> {
 }
 
 class ReminderCreatePage extends StatefulWidget {
-  final Function(DateTime, String) onSave;
+  final Function(DateTime, String, TimeOfDay) onSave;
 
   const ReminderCreatePage({super.key, required this.onSave});
 
@@ -178,11 +819,147 @@ class ReminderCreatePage extends StatefulWidget {
 class _ReminderCreatePageState extends State<ReminderCreatePage> {
   final _taskController = TextEditingController();
   DateTime _selectedDay = DateTime.now();
+  TimeOfDay _selectedTime = TimeOfDay.now();
+
+  void _showTimePickerBottomSheet() {
+    int hour = _selectedTime.hour;
+    int minute = _selectedTime.minute;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Select Time',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      NumberPicker(
+                        value: hour,
+                        minValue: 0,
+                        maxValue: 23,
+                        zeroPad: true,
+                        onChanged: (value) {
+                          setModalState(() {
+                            hour = value;
+                          });
+                        },
+                        textStyle: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: Colors.grey),
+                        selectedTextStyle:
+                            Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const Text(':'),
+                      NumberPicker(
+                        value: minute,
+                        minValue: 0,
+                        maxValue: 59,
+                        zeroPad: true,
+                        onChanged: (value) {
+                          setModalState(() {
+                            minute = value;
+                          });
+                        },
+                        textStyle: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: Colors.grey),
+                        selectedTextStyle:
+                            Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor:
+                              Theme.of(context).textTheme.bodyMedium?.color,
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          final newTime = TimeOfDay(hour: hour, minute: minute);
+                          setState(() {
+                            _selectedTime = newTime;
+                          });
+                          Navigator.pop(context);
+                        },
+                        style: Theme.of(context)
+                            .elevatedButtonTheme
+                            .style
+                            ?.copyWith(
+                              shape: WidgetStateProperty.all(
+                                RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                        child: Text(
+                          'Set Time',
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context)
+                                        .elevatedButtonTheme
+                                        .style
+                                        ?.foregroundColor
+                                        ?.resolve({}),
+                                  ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   void dispose() {
     _taskController.dispose();
     super.dispose();
+  }
+
+  String _formatTime(TimeOfDay time) {
+    final now = DateTime.now();
+    final dateTime =
+        DateTime(now.year, now.month, now.day, time.hour, time.minute);
+    return DateFormat('HH:mm').format(dateTime);
   }
 
   @override
@@ -215,13 +992,22 @@ class _ReminderCreatePageState extends State<ReminderCreatePage> {
               },
               calendarStyle: CalendarStyle(
                 selectedDecoration: BoxDecoration(
-                  color: Theme.of(context).elevatedButtonTheme.style?.backgroundColor?.resolve({}) ??
-                      Colors.blue,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : Colors.black,
                   shape: BoxShape.circle,
                 ),
                 todayDecoration: BoxDecoration(
-                  color: Colors.grey[Theme.of(context).brightness == Brightness.dark ? 700 : 300],
+                  color: Colors.grey[
+                      Theme.of(context).brightness == Brightness.dark
+                          ? 700
+                          : 300],
                   shape: BoxShape.circle,
+                ),
+                selectedTextStyle: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.black
+                      : Colors.white,
                 ),
               ),
               headerStyle: const HeaderStyle(
@@ -236,11 +1022,29 @@ class _ReminderCreatePageState extends State<ReminderCreatePage> {
               ),
             ),
             const SizedBox(height: 20),
+            InkWell(
+              onTap: _showTimePickerBottomSheet,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Time',
+                ),
+                child: Text(
+                  _formatTime(_selectedTime),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 if (_taskController.text.isNotEmpty) {
-                  widget.onSave(_selectedDay, _taskController.text);
+                  widget.onSave(
+                      _selectedDay, _taskController.text, _selectedTime);
                   Navigator.pop(context);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a valid task')),
+                  );
                 }
               },
               style: ElevatedButton.styleFrom(

@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
-import 'notes_page.dart'; // Impor NotesListPage
-import 'register_page.dart';
-import 'home.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
+class _RegisterPageState extends State<RegisterPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
+  String? _errorMessage;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -34,6 +36,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   @override
   void dispose() {
     _animationController.dispose();
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -55,7 +58,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16.0), // Padding konsisten
             child: FadeTransition(
               opacity: _fadeAnimation,
               child: Form(
@@ -65,7 +68,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Sign In',
+                      'Sign Up',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
@@ -75,6 +78,36 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
+                    TextFormField(
+                      controller: _nameController,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Name',
+                        labelStyle: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 14,
+                        ),
+                        prefixIcon:
+                            const Icon(Icons.person, color: Colors.white70),
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.1),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Masukkan nama';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _emailController,
                       style: const TextStyle(
@@ -88,7 +121,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                           color: Colors.grey[400],
                           fontSize: 14,
                         ),
-                        prefixIcon: const Icon(Icons.email, color: Colors.white70),
+                        prefixIcon:
+                            const Icon(Icons.email, color: Colors.white70),
                         filled: true,
                         fillColor: Colors.white.withOpacity(0.1),
                         border: OutlineInputBorder(
@@ -122,7 +156,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                           color: Colors.grey[400],
                           fontSize: 14,
                         ),
-                        prefixIcon: const Icon(Icons.lock, color: Colors.white70),
+                        prefixIcon:
+                            const Icon(Icons.lock, color: Colors.white70),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _isPasswordVisible
@@ -156,17 +191,52 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          // Navigasi ke HomePage setelah login
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const HomePage(),
-                            ),
-                          );
-                        }
-                      },
+                      onPressed: _isLoading
+                          ? null
+                          : () async {
+                              if (_formKey.currentState!.validate()) {
+                                setState(() {
+                                  _isLoading = true;
+                                  _errorMessage = null;
+                                });
+                                try {
+                                  final response = await Supabase
+                                      .instance.client.auth
+                                      .signUp(
+                                    email: _emailController.text,
+                                    password: _passwordController.text,
+                                    data: {'name': _nameController.text},
+                                  );
+                                  if (response.user != null) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Register berhasil! Silakan login.')),
+                                      );
+                                      Navigator.pop(context);
+                                    }
+                                  } else {
+                                    setState(() {
+                                      _errorMessage =
+                                          'Register gagal. Cek email/password!';
+                                    });
+                                  }
+                                } on AuthException catch (e) {
+                                  setState(() {
+                                    _errorMessage = e.message;
+                                  });
+                                } catch (e) {
+                                  setState(() {
+                                    _errorMessage = e.toString();
+                                  });
+                                }
+                                setState(() {
+                                  _isLoading = false;
+                                });
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(double.infinity, 50),
                         backgroundColor: Colors.white,
@@ -177,26 +247,24 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                         elevation: 2,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: const Text(
-                        'Sign In',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
+                      child: _isLoading
+                          ? const CircularProgressIndicator()
+                          : const Text(
+                              'Sign Up',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
                     ),
                     const SizedBox(height: 16),
                     TextButton(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const RegisterPage()),
-                        );
+                        Navigator.pop(context);
                       },
                       child: Text(
-                        'Don\'t have an account? Sign Up',
+                        'Already have an account? Sign In',
                         style: TextStyle(
                           color: Colors.grey[400],
                           fontSize: 14,
@@ -205,6 +273,15 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                         ),
                       ),
                     ),
+                    if (_errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                   ],
                 ),
               ),

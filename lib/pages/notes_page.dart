@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class NotesListPage extends StatefulWidget {
   const NotesListPage({super.key});
@@ -11,60 +12,60 @@ class _NotesListPageState extends State<NotesListPage> {
   final List<Map<String, String>> _notes = [];
 
   void _deleteNote(String id) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12), // Sudut membulat sesuai tema aplikasi
-      ),
-      title: Text(
-        'Delete Confirmation',
-        style: Theme.of(context).textTheme.headlineSmall, // Menggunakan textTheme dari tema
-      ),
-      content: Text(
-        'Are you sure you want to delete this reminder?',
-        style: Theme.of(context).textTheme.bodyMedium, // Menggunakan textTheme dari tema
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context); // Tutup dialog tanpa menghapus
-          },
-          style: TextButton.styleFrom(
-            foregroundColor: Theme.of(context).textTheme.bodyMedium?.color, // Warna teks dari tema
-          ),
-          child: const Text(
-            'No',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        title: Text(
+          'Delete Confirmation',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        content: Text(
+          'Are you sure you want to delete this reminder?',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).textTheme.bodyMedium?.color,
+            ),
+            child: const Text(
+              'No',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-        ),
-        TextButton(
-          onPressed: () {
-            setState(() {
-              _notes.removeWhere((note) => note['id'] == id); // Hapus note
-            });
-            Navigator.pop(context); // Tutup dialog setelah menghapus
-          },
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.red, // Warna merah untuk aksi hapus
-          ),
-          child: const Text(
-            'Yes',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _notes.removeWhere((note) => note['id'] == id);
+              });
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text(
+              'Yes',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-        ),
-      ],
-      backgroundColor: Theme.of(context).dialogTheme.backgroundColor, // Background dari tema
-      elevation: 4, // Bayangan ringan
-    ),
-  );
-}
+        ],
+        backgroundColor: Theme.of(context).dialogTheme.backgroundColor,
+        elevation: 4,
+      ),
+    );
+  }
 
   void _navigateToCreateNotePage() {
     Navigator.push(
@@ -93,7 +94,7 @@ class _NotesListPageState extends State<NotesListPage> {
     });
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
@@ -108,42 +109,85 @@ class _NotesListPageState extends State<NotesListPage> {
                     ),
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.only(top: 16, bottom: 80),
+              : GridView.builder(
+                  padding: const EdgeInsets.only(top: 16, bottom: 80, left: 16, right: 16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 0.75,
+                  ),
                   itemCount: _notes.length,
                   itemBuilder: (context, index) {
                     final note = _notes[index];
                     return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        title: Text(
-                          note['title']!,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            note['content']!,
-                            style: const TextStyle(
-                              fontSize: 14,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteNote(note['id']!), // Panggil fungsi dengan konfirmasi
-                        ),
+                      child: InkWell(
                         onTap: () => _navigateToEditNotePage(note),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      note['title']!,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  PopupMenuButton<String>(
+                                    icon: const Icon(Icons.more_vert, color: Colors.grey),
+                                    onSelected: (value) {
+                                      if (value == 'delete') {
+                                        _deleteNote(note['id']!);
+                                      }
+                                    },
+                                    itemBuilder: (BuildContext context) => [
+                                      const PopupMenuItem<String>(
+                                        value: 'delete',
+                                        child: Text(
+                                          'Delete',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Expanded(
+                                child: Text(
+                                  note['content']!,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                  ),
+                                  maxLines: 4,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Created: ${note['created_at']}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -154,6 +198,7 @@ class _NotesListPageState extends State<NotesListPage> {
             child: FloatingActionButton(
               onPressed: _navigateToCreateNotePage,
               elevation: 4,
+              shape: const CircleBorder(),
               child: const Icon(Icons.add),
             ),
           ),
@@ -167,7 +212,7 @@ class NoteCreatePage extends StatelessWidget {
   const NoteCreatePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(context) {
     final _titleController = TextEditingController();
     final _contentController = TextEditingController();
 
@@ -201,7 +246,7 @@ class NoteCreatePage extends StatelessWidget {
                 labelText: 'Content',
                 alignLabelWithHint: true,
               ),
-              minLines: 5,
+              minLines: 24,
               maxLines: null,
               keyboardType: TextInputType.multiline,
             ),
@@ -212,6 +257,7 @@ class NoteCreatePage extends StatelessWidget {
                   'id': DateTime.now().millisecondsSinceEpoch.toString(),
                   'title': _titleController.text,
                   'content': _contentController.text,
+                  'created_at': DateFormat('dd/MM/yyyy').format(DateTime.now()),
                 };
                 Navigator.pop(context, newNote);
               },
@@ -276,7 +322,8 @@ class NoteEditPage extends StatelessWidget {
               decoration: const InputDecoration(
                 labelText: 'Content',
               ),
-              maxLines: 5,
+              minLines: 24,
+              maxLines: null,
             ),
             const SizedBox(height: 24),
             ElevatedButton(
@@ -285,6 +332,7 @@ class NoteEditPage extends StatelessWidget {
                   'id': note['id']!,
                   'title': _titleController.text,
                   'content': _contentController.text,
+                  'created_at': note['created_at']!, // Preserve original creation date
                 };
                 Navigator.pop(context, updatedNote);
               },

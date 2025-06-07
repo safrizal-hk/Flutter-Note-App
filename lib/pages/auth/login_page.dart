@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../notes_page.dart';
+import 'register_page.dart';
+import '../home.dart';
 
-class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
 
   @override
-  State<RegisterPage> createState() => _RegisterPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
-class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderStateMixin {
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
+  bool _rememberMe = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -32,10 +38,56 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
   @override
   void dispose() {
     _animationController.dispose();
-    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _signIn() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final supabase = Supabase.instance.client;
+        await supabase.auth.signInWithPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage()),
+          );
+        }
+      } on AuthException catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Terjadi kesalahan. Coba lagi nanti.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
   }
 
   @override
@@ -54,7 +106,7 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(16.0), // Padding konsisten
+            padding: const EdgeInsets.all(16.0),
             child: FadeTransition(
               opacity: _fadeAnimation,
               child: Form(
@@ -64,7 +116,7 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Sign Up',
+                      'Welcome Back',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
@@ -73,36 +125,18 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _nameController,
-                      style: const TextStyle(
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Hey! Good to see you again',
+                      style: TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.w500,
+                        fontFamily: 'Poppins',
                       ),
-                      decoration: InputDecoration(
-                        labelText: 'Name',
-                        labelStyle: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 14,
-                        ),
-                        prefixIcon: const Icon(Icons.person, color: Colors.white70),
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.1),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Masukkan nama';
-                        }
-                        return null;
-                      },
+                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     TextFormField(
                       controller: _emailController,
                       style: const TextStyle(
@@ -116,7 +150,8 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
                           color: Colors.grey[400],
                           fontSize: 14,
                         ),
-                        prefixIcon: const Icon(Icons.email, color: Colors.white70),
+                        prefixIcon:
+                            const Icon(Icons.email, color: Colors.white70),
                         filled: true,
                         fillColor: Colors.white.withOpacity(0.1),
                         border: OutlineInputBorder(
@@ -150,7 +185,8 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
                           color: Colors.grey[400],
                           fontSize: 14,
                         ),
-                        prefixIcon: const Icon(Icons.lock, color: Colors.white70),
+                        prefixIcon:
+                            const Icon(Icons.lock, color: Colors.white70),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _isPasswordVisible
@@ -182,46 +218,116 @@ class _RegisterPageState extends State<RegisterPage> with SingleTickerProviderSt
                         return null;
                       },
                     ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: _rememberMe,
+                              onChanged: (value) {
+                                setState(() {
+                                  _rememberMe = value ?? false;
+                                });
+                              },
+                            ),
+                            Text(
+                              'Remember me',
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                          ],
+                        ),
+                        GestureDetector(
+                          onTap: () {},
+                          child: Text(
+                            'Forgot password?',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 24),
                     ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          // Implement register logic here
-                          Navigator.pop(context);
-                        }
-                      },
+                      onPressed: _isLoading ? null : _signIn,
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(double.infinity, 50),
                         backgroundColor: Colors.white,
                         foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         elevation: 2,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: const Text(
-                        'Sign Up',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.black),
+                              ),
+                            )
+                          : const Text(
+                              'Sign In',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
                     ),
                     const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.g_mobiledata,
+                              color: Colors.white70),
+                          onPressed: () {},
+                        ),
+                        IconButton(
+                          icon:
+                              const Icon(Icons.facebook, color: Colors.white70),
+                          onPressed: () {},
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.flutter_dash,
+                              color: Colors.white70),
+                          onPressed: () {},
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const RegisterPage()),
+                        );
                       },
                       child: Text(
-                        'Already have an account? Sign In',
+                        "Don't have an account? Sign up",
                         style: TextStyle(
                           color: Colors.grey[400],
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           fontFamily: 'Poppins',
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ],

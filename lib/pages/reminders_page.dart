@@ -478,8 +478,10 @@ class _RemindersListPageState extends State<RemindersListPage>
     todayReminders.sort((a, b) {
       final timeA = a['time'] as TimeOfDay;
       final timeB = b['time'] as TimeOfDay;
-      final dateA = DateTime(2025, 6, 7, timeA.hour, timeA.minute); // Tanggal acuan (6/7/2025)
-      final dateB = DateTime(2025, 6, 7, timeB.hour, timeB.minute); // Tanggal acuan (6/7/2025)
+      final dateA = DateTime(
+          2025, 6, 7, timeA.hour, timeA.minute); // Tanggal acuan (6/7/2025)
+      final dateB = DateTime(
+          2025, 6, 7, timeB.hour, timeB.minute); // Tanggal acuan (6/7/2025)
       return dateA.compareTo(dateB);
     });
 
@@ -533,7 +535,8 @@ class _RemindersListPageState extends State<RemindersListPage>
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final availableWidth = constraints.maxWidth;
-                        final itemWidth = (availableWidth - 32) / 7; // Mengurangi padding horizontal (16 * 2)
+                        final itemWidth = (availableWidth - 32) /
+                            7; // Mengurangi padding horizontal (16 * 2)
 
                         return ListView.builder(
                           scrollDirection: Axis.horizontal,
@@ -541,8 +544,8 @@ class _RemindersListPageState extends State<RemindersListPage>
                           itemBuilder: (context, index) {
                             final date = weekDates[index];
                             final isSelected = isSameDay(date, _focusedDay);
-                            final hasReminders = _reminders[
-                                        DateTime(date.year, date.month, date.day)]
+                            final hasReminders = _reminders[DateTime(
+                                        date.year, date.month, date.day)]
                                     ?.isNotEmpty ??
                                 false;
 
@@ -556,7 +559,8 @@ class _RemindersListPageState extends State<RemindersListPage>
                               },
                               child: Container(
                                 width: itemWidth,
-                                margin: const EdgeInsets.symmetric(horizontal: 2),
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 2),
                                 decoration: BoxDecoration(
                                   color: isSelected
                                       ? Theme.of(context).brightness ==
@@ -653,7 +657,7 @@ class _RemindersListPageState extends State<RemindersListPage>
                           final reminder = todayReminders[index];
                           final time = _formatTime(reminder['time']);
                           final color = reminder['label'] == 'To Do'
-                              ? Theme.of(context).colorScheme.primary
+                              ? Colors.blue[400] // Ubah ke warna biru
                               : reminder['label'] == 'In Progress'
                                   ? Colors.orange[400]
                                   : Colors.green[400];
@@ -706,9 +710,8 @@ class _RemindersListPageState extends State<RemindersListPage>
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: GestureDetector(
-                                    onTap: () =>
-                                        _showEditReminderBottomSheet(
-                                            normalizedFocusedDay, reminder),
+                                    onTap: () => _showEditReminderBottomSheet(
+                                        normalizedFocusedDay, reminder),
                                     child: Container(
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(

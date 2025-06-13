@@ -121,15 +121,16 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              _isFocus ? 'Fokus' : 'Istirahat',
+              _isFocus ? 'Focus' : 'Rest',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             const SizedBox(height: 20),
             Text(
               _formatTime(_remainingSeconds),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 48,
                 fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.titleLarge?.color,
               ),
             ),
             const SizedBox(height: 40),
@@ -144,14 +145,18 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: Text(_isRunning ? 'Pause' : 'Mulai'),
+                  child: Text(_isRunning ? 'Pause' : 'Start'),
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(
                   onPressed: _resetTimer,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey, // Tetap gunakan grey untuk reset
-                    foregroundColor: Colors.white,
+                    backgroundColor: Theme.of(context).brightness == Brightness.light 
+                        ? Colors.grey[600] 
+                        : Colors.grey[400],
+                    foregroundColor: Theme.of(context).brightness == Brightness.light 
+                        ? Colors.white 
+                        : Colors.black,
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -167,9 +172,8 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToSettings,
         elevation: 4,
-        shape:
-                  const CircleBorder(), // Tambahkan ini agar benar-benar lingkaran
-              child: const Icon(Icons.settings),
+        shape: const CircleBorder(),
+        child: const Icon(Icons.settings),
       ),
     );
   }

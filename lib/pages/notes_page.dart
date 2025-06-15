@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotesListPage extends StatefulWidget {
   const NotesListPage({super.key});
@@ -12,7 +13,8 @@ class _NotesListPageState extends State<NotesListPage> {
   final List<Map<String, dynamic>> _notes = [];
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  bool _showArchived = false; // <--- Tambahkan ini
+  bool _showArchived = false;
+  final supabase = Supabase.instance.client;
 
   @override
   void initState() {
@@ -22,12 +24,36 @@ class _NotesListPageState extends State<NotesListPage> {
         _searchQuery = _searchController.text.toLowerCase();
       });
     });
+    _loadNotes();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadNotes() async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final response = await supabase
+          .from('notes')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      setState(() {
+        _notes.clear();
+        _notes.addAll(List<Map<String, dynamic>>.from(response));
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load notes: $e')),
+        );
+      }
+    }
   }
 
   List<Map<String, dynamic>> get _filteredNotes {
@@ -43,9 +69,7 @@ class _NotesListPageState extends State<NotesListPage> {
 
   List<Map<String, dynamic>> get _sortedNotes {
     final filtered = _filteredNotes
-        .where((note) =>
-            (note['archived'] ?? false) ==
-            _showArchived) // <--- filter archived
+        .where((note) => (note['archived'] ?? false) == _showArchived)
         .toList();
     filtered.sort((a, b) {
       final aPinned = a['pinned'] == true;
@@ -54,35 +78,54 @@ class _NotesListPageState extends State<NotesListPage> {
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
 
-      final aDate =
-          DateTime.tryParse(a['created_timestamp'] ?? '') ?? DateTime.now();
-      final bDate =
-          DateTime.tryParse(b['created_timestamp'] ?? '') ?? DateTime.now();
+      final aDate = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime.now();
+      final bDate = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime.now();
       return bDate.compareTo(aDate);
     });
     return filtered;
   }
 
-  void _togglePin(String id) {
-    setState(() {
-      final noteIndex = _notes.indexWhere((note) => note['id'] == id);
-      if (noteIndex != -1) {
-        _notes[noteIndex]['pinned'] = !(_notes[noteIndex]['pinned'] ?? false);
+  Future<void> _togglePin(String id) async {
+    final noteIndex = _notes.indexWhere((note) => note['id'] == id);
+    if (noteIndex != -1) {
+      final newPinned = !(_notes[noteIndex]['pinned'] ?? false);
+      try {
+        await supabase.from('notes').update({'pinned': newPinned}).eq('id', id);
+        setState(() {
+          _notes[noteIndex]['pinned'] = newPinned;
+        });
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to toggle pin: $e')),
+          );
+        }
       }
-    });
+    }
   }
 
-  void _toggleArchive(String id) {
-    setState(() {
-      final noteIndex = _notes.indexWhere((note) => note['id'] == id);
-      if (noteIndex != -1) {
-        _notes[noteIndex]['archived'] =
-            !(_notes[noteIndex]['archived'] ?? false);
+  Future<void> _toggleArchive(String id) async {
+    final noteIndex = _notes.indexWhere((note) => note['id'] == id);
+    if (noteIndex != -1) {
+      final newArchived = !(_notes[noteIndex]['archived'] ?? false);
+      try {
+        await supabase
+            .from('notes')
+            .update({'archived': newArchived}).eq('id', id);
+        setState(() {
+          _notes[noteIndex]['archived'] = newArchived;
+        });
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to toggle archive: $e')),
+          );
+        }
       }
-    });
+    }
   }
 
-  void _deleteNote(String id) {
+  Future<void> _deleteNote(String id) async {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -114,11 +157,20 @@ class _NotesListPageState extends State<NotesListPage> {
             ),
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                _notes.removeWhere((note) => note['id'] == id);
-              });
-              Navigator.pop(context);
+            onPressed: () async {
+              try {
+                await supabase.from('notes').delete().eq('id', id);
+                setState(() {
+                  _notes.removeWhere((note) => note['id'] == id);
+                });
+                Navigator.pop(context);
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to delete note: $e')),
+                  );
+                }
+              }
             },
             style: TextButton.styleFrom(
               foregroundColor: Colors.red,
@@ -138,32 +190,21 @@ class _NotesListPageState extends State<NotesListPage> {
     );
   }
 
-  void _navigateToCreateNotePage() {
+  Future<void> _navigateToCreateNotePage() async {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const NoteCreatePage()),
-    ).then((newNote) {
-      if (newNote != null) {
-        setState(() {
-          _notes.add(newNote);
-        });
-      }
+    ).then((_) async {
+      await _loadNotes(); // Refresh list after creating a note
     });
   }
 
-  void _navigateToEditNotePage(Map<String, dynamic> note) {
+  Future<void> _navigateToEditNotePage(Map<String, dynamic> note) async {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => NoteEditPage(note: note)),
-    ).then((updatedNote) {
-      if (updatedNote != null) {
-        setState(() {
-          final index = _notes.indexWhere((n) => n['id'] == note['id']);
-          if (index != -1) {
-            _notes[index] = updatedNote;
-          }
-        });
-      }
+    ).then((_) async {
+      await _loadNotes(); // Refresh list after editing a note
     });
   }
 
@@ -174,7 +215,6 @@ class _NotesListPageState extends State<NotesListPage> {
     return Scaffold(
       body: Column(
         children: [
-          // Search Bar + Archive Toggle
           Container(
             padding: const EdgeInsets.all(16.0),
             child: Row(
@@ -231,7 +271,6 @@ class _NotesListPageState extends State<NotesListPage> {
               ],
             ),
           ),
-          // Notes List
           Expanded(
             child: sortedNotes.isEmpty
                 ? Center(
@@ -299,7 +338,7 @@ class _NotesListPageState extends State<NotesListPage> {
                                     if (isPinned) const SizedBox(width: 4),
                                     Expanded(
                                       child: Text(
-                                        note['title']!,
+                                        note['title'] ?? 'Untitled',
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
@@ -316,86 +355,109 @@ class _NotesListPageState extends State<NotesListPage> {
                                       ),
                                     ),
                                     PopupMenuButton<String>(
-  icon: Icon(
-    Icons.more_vert,
-    color: Theme.of(context).textTheme.bodyMedium!.color, // Menggunakan bodyMedium color
-  ),
-  onSelected: (value) {
-    if (value == 'delete') {
-      _deleteNote(note['id']!);
-    } else if (value == 'pin') {
-      _togglePin(note['id']!);
-    } else if (value == 'archive') {
-      _toggleArchive(note['id']!);
-    }
-  },
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(12), // Konsisten dengan tema
-  ),
-  elevation: 4, // Konsisten dengan cardTheme dan dialogTheme
-  color: Theme.of(context).cardTheme.color, // Menggunakan cardTheme color untuk latar belakang
-  itemBuilder: (BuildContext context) => [
-    PopupMenuItem<String>(
-      value: 'pin',
-      child: Row(
-        children: [
-          Icon(
-            isPinned ? Icons.push_pin_outlined : Icons.push_pin,
-            size: 20,
-            color: Theme.of(context).textTheme.bodyMedium!.color, // Warna ikon dari bodyMedium
-          ),
-          const SizedBox(width: 8),
-          Text(
-            isPinned ? 'Unpin' : 'Pin',
-            style: Theme.of(context).textTheme.bodyMedium, // Menggunakan bodyMedium
-          ),
-        ],
-      ),
-    ),
-    PopupMenuItem<String>(
-      value: 'archive',
-      child: Row(
-        children: [
-          Icon(
-            isArchived ? Icons.unarchive : Icons.archive,
-            size: 20,
-            color: Theme.of(context).textTheme.bodyMedium!.color, // Warna ikon dari bodyMedium
-          ),
-          const SizedBox(width: 8),
-          Text(
-            isArchived ? 'Unarchive' : 'Archive',
-            style: Theme.of(context).textTheme.bodyMedium, // Menggunakan bodyMedium
-          ),
-        ],
-      ),
-    ),
-    PopupMenuItem<String>(
-      value: 'delete',
-      child: Row(
-        children: [
-          const Icon(
-            Icons.delete,
-            size: 20,
-            color: Color(0xFFE57373), // Light red untuk aksi destruktif, kontras di kedua tema
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Delete',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFFE57373), // Light red untuk teks
-                ),
-          ),
-        ],
-      ),
-    ),
-  ],
-),
+                                      icon: Icon(
+                                        Icons.more_vert,
+                                        color: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium!
+                                            .color,
+                                      ),
+                                      onSelected: (value) {
+                                        if (value == 'delete') {
+                                          _deleteNote(note['id']);
+                                        } else if (value == 'pin') {
+                                          _togglePin(note['id']);
+                                        } else if (value == 'archive') {
+                                          _toggleArchive(note['id']);
+                                        }
+                                      },
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      elevation: 4,
+                                      color: Theme.of(context).cardTheme.color,
+                                      itemBuilder: (BuildContext context) => [
+                                        PopupMenuItem<String>(
+                                          value: 'pin',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                isPinned
+                                                    ? Icons.push_pin_outlined
+                                                    : Icons.push_pin,
+                                                size: 20,
+                                                color: Theme.of(context)
+                                                    .textTheme
+                                                    .bodyMedium!
+                                                    .color,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                isPinned ? 'Unpin' : 'Pin',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodyMedium,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        PopupMenuItem<String>(
+                                          value: 'archive',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                isArchived
+                                                    ? Icons.unarchive
+                                                    : Icons.archive,
+                                                size: 20,
+                                                color: Theme.of(context)
+                                                    .textTheme
+                                                    .bodyMedium!
+                                                    .color,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                isArchived
+                                                    ? 'Unarchive'
+                                                    : 'Archive',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodyMedium,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        PopupMenuItem<String>(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.delete,
+                                                size: 20,
+                                                color: Color(0xFFE57373),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Delete',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodyMedium
+                                                    ?.copyWith(
+                                                      color:
+                                                          const Color(0xFFE57373),
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
                                 Expanded(
                                   child: Text(
-                                    note['content']!,
+                                    note['content'] ?? '',
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Theme.of(context)
@@ -408,7 +470,7 @@ class _NotesListPageState extends State<NotesListPage> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Created: ${note['created_at']}',
+                                  'Created: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(note['created_at']))}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w400,
@@ -445,6 +507,7 @@ class NoteCreatePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final _titleController = TextEditingController();
     final _contentController = TextEditingController();
+    final supabase = Supabase.instance.client;
 
     return Scaffold(
       appBar: AppBar(
@@ -482,18 +545,32 @@ class NoteCreatePage extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
+                if (_titleController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Title cannot be empty')),
+                  );
+                  return;
+                }
                 final now = DateTime.now();
-                final newNote = {
-                  'id': now.millisecondsSinceEpoch.toString(),
-                  'title': _titleController.text,
-                  'content': _contentController.text,
-                  'created_at': DateFormat('dd/MM/yyyy').format(now),
-                  'created_timestamp': now.toIso8601String(),
-                  'pinned': false,
-                  'archived': false, // <--- Tambahkan field archived
-                };
-                Navigator.pop(context, newNote);
+                final userId = supabase.auth.currentUser?.id;
+                if (userId != null) {
+                  try {
+                    await supabase.from('notes').insert({
+                      'user_id': userId,
+                      'title': _titleController.text,
+                      'content': _contentController.text,
+                      'pinned': false,
+                      'archived': false,
+                      'created_at': now.toIso8601String(),
+                    });
+                    Navigator.pop(context);
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to save note: $e')),
+                    );
+                  }
+                }
               },
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -525,8 +602,9 @@ class NoteEditPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final _titleController = TextEditingController(text: note['title']);
-    final _contentController = TextEditingController(text: note['content']);
+    final _titleController = TextEditingController(text: note['title'] ?? '');
+    final _contentController = TextEditingController(text: note['content'] ?? '');
+    final supabase = Supabase.instance.client;
 
     return Scaffold(
       appBar: AppBar(
@@ -564,13 +642,24 @@ class NoteEditPage extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () {
-                final updatedNote = {
-                  ...note,
-                  'title': _titleController.text,
-                  'content': _contentController.text,
-                };
-                Navigator.pop(context, updatedNote);
+              onPressed: () async {
+                if (_titleController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Title cannot be empty')),
+                  );
+                  return;
+                }
+                try {
+                  await supabase.from('notes').update({
+                    'title': _titleController.text,
+                    'content': _contentController.text,
+                  }).eq('id', note['id']);
+                  Navigator.pop(context);
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update note: $e')),
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),

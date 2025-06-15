@@ -3,8 +3,9 @@ import 'package:provider/provider.dart';
 import 'notes_page.dart';
 import 'reminders_page.dart';
 import 'pomodoro_timer.dart';
+import 'profile_settings.dart';
+// import 'profile_settings.dart';  Ensure this matches the file name
 import '../theme/theme_provider.dart';
-import 'settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -26,7 +27,7 @@ class _HomePageState extends State<HomePage> {
     RemindersListPage(),
     PomodoroTimerPage(),
     NotesListPage(),
-    SettingsPage(),
+    ProfileSettingsPage(), // Should work if imported correctly
   ];
 
   static const List<String> _pageTitles = <String>[
@@ -51,7 +52,10 @@ class _HomePageState extends State<HomePage> {
         ),
         centerTitle: true,
       ),
-      body: _pages[_selectedIndex],
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:numberpicker/numberpicker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RemindersListPage extends StatefulWidget {
   const RemindersListPage({super.key});
@@ -16,6 +17,7 @@ class _RemindersListPageState extends State<RemindersListPage>
   DateTime _focusedDay = DateTime.now();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  final supabase = Supabase.instance.client;
 
   @override
   void initState() {
@@ -28,6 +30,7 @@ class _RemindersListPageState extends State<RemindersListPage>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _animationController.forward();
+    _loadReminders();
   }
 
   @override
@@ -36,7 +39,47 @@ class _RemindersListPageState extends State<RemindersListPage>
     super.dispose();
   }
 
-  void _deleteReminder(DateTime date, String id, Function closeBottomSheet) {
+  Future<void> _loadReminders() async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final response = await supabase
+          .from('reminders')
+          .select()
+          .eq('user_id', userId)
+          .order('date', ascending: true)
+          .order('time', ascending: true);
+      setState(() {
+        _reminders.clear();
+        for (var reminder in response) {
+          final date = DateTime.parse(reminder['date']);
+          final normalizedDate = DateTime(date.year, date.month, date.day);
+          if (_reminders[normalizedDate] == null) {
+            _reminders[normalizedDate] = [];
+          }
+          _reminders[normalizedDate]!.add({
+            'id': reminder['id'],
+            'task': reminder['task'],
+            'isCompleted': reminder['is_completed'],
+            'label': reminder['label'],
+            'time': TimeOfDay(
+              hour: TimeOfDay.fromDateTime(DateTime.parse('1970-01-01 ${reminder['time']}')).hour,
+              minute: TimeOfDay.fromDateTime(DateTime.parse('1970-01-01 ${reminder['time']}')).minute,
+            ),
+          });
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load reminders: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteReminder(DateTime date, String id, Function closeBottomSheet) async {
     final normalizedDate = DateTime(date.year, date.month, date.day);
     showDialog(
       context: context,
@@ -69,16 +112,24 @@ class _RemindersListPageState extends State<RemindersListPage>
             ),
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                _reminders[normalizedDate]
-                    ?.removeWhere((reminder) => reminder['id'] == id);
-                if (_reminders[normalizedDate]?.isEmpty ?? false) {
-                  _reminders.remove(normalizedDate);
+            onPressed: () async {
+              try {
+                await supabase.from('reminders').delete().eq('id', id);
+                setState(() {
+                  _reminders[normalizedDate]?.removeWhere((reminder) => reminder['id'] == id);
+                  if (_reminders[normalizedDate]?.isEmpty ?? false) {
+                    _reminders.remove(normalizedDate);
+                  }
+                });
+                Navigator.pop(context);
+                closeBottomSheet();
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to delete reminder: $e')),
+                  );
                 }
-              });
-              Navigator.pop(context);
-              closeBottomSheet();
+              }
             },
             style: TextButton.styleFrom(
               foregroundColor: Colors.red,
@@ -98,37 +149,73 @@ class _RemindersListPageState extends State<RemindersListPage>
     );
   }
 
-  void _updateReminder(DateTime date, String id, String newTask,
-      String newLabel, TimeOfDay newTime) {
+  Future<void> _updateReminder(DateTime date, String id, String newTask, String newLabel, TimeOfDay newTime) async {
     final normalizedDate = DateTime(date.year, date.month, date.day);
-    setState(() {
-      final reminder =
-          _reminders[normalizedDate]?.firstWhere((r) => r['id'] == id);
-      if (reminder != null) {
-        reminder['task'] = newTask;
-        reminder['label'] = newLabel;
-        reminder['isCompleted'] = newLabel == 'Done';
-        reminder['time'] = newTime;
+    try {
+      await supabase.from('reminders').update({
+        'task': newTask,
+        'label': newLabel,
+        'is_completed': newLabel == 'Done',
+        'time': '${newTime.hour.toString().padLeft(2, '0')}:${newTime.minute.toString().padLeft(2, '0')}:00',
+      }).eq('id', id);
+      setState(() {
+        final reminder = _reminders[normalizedDate]?.firstWhere((r) => r['id'] == id);
+        if (reminder != null) {
+          reminder['task'] = newTask;
+          reminder['label'] = newLabel;
+          reminder['isCompleted'] = newLabel == 'Done';
+          reminder['time'] = newTime;
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update reminder: $e')),
+        );
       }
-    });
+    }
   }
 
-  void _addReminder(DateTime date, String task, TimeOfDay time) {
+  Future<void> _addReminder(DateTime date, String task, TimeOfDay time) async {
     final normalizedDate = DateTime(date.year, date.month, date.day);
-    setState(() {
-      final reminderId = DateTime.now().millisecondsSinceEpoch.toString();
-      final newReminder = {
-        'id': reminderId,
-        'task': task,
-        'isCompleted': false,
-        'label': 'To Do',
-        'time': time,
-      };
-      if (_reminders[normalizedDate] == null) {
-        _reminders[normalizedDate] = [];
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to add a reminder')),
+        );
       }
-      _reminders[normalizedDate]!.add(newReminder);
-    });
+      return;
+    }
+    try {
+      final reminderId = DateTime.now().millisecondsSinceEpoch.toString();
+      await supabase.from('reminders').insert({
+        'user_id': userId,
+        'date': normalizedDate.toIso8601String().split('T')[0],
+        'task': task,
+        'is_completed': false,
+        'label': 'To Do',
+        'time': '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:00',
+      });
+      setState(() {
+        if (_reminders[normalizedDate] == null) {
+          _reminders[normalizedDate] = [];
+        }
+        _reminders[normalizedDate]!.add({
+          'id': reminderId,
+          'task': task,
+          'isCompleted': false,
+          'label': 'To Do',
+          'time': time,
+        });
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add reminder: $e')),
+        );
+      }
+    }
   }
 
   void _navigateToCreateReminder(BuildContext context) {
@@ -479,9 +566,9 @@ class _RemindersListPageState extends State<RemindersListPage>
       final timeA = a['time'] as TimeOfDay;
       final timeB = b['time'] as TimeOfDay;
       final dateA = DateTime(
-          2025, 6, 7, timeA.hour, timeA.minute); // Tanggal acuan (6/7/2025)
+          2025, 6, 15, timeA.hour, timeA.minute); // Tanggal acuan (15/6/2025)
       final dateB = DateTime(
-          2025, 6, 7, timeB.hour, timeB.minute); // Tanggal acuan (6/7/2025)
+          2025, 6, 15, timeB.hour, timeB.minute); // Tanggal acuan (15/6/2025)
       return dateA.compareTo(dateB);
     });
 
@@ -510,7 +597,7 @@ class _RemindersListPageState extends State<RemindersListPage>
                         },
                       ),
                       Text(
-                        '${DateFormat('MMMM yyyy', 'en_US').format(weekStart)}', // Menggunakan MMMM untuk nama bulan lengkap
+                        '${DateFormat('MMMM yyyy', 'en_US').format(weekStart)}',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
@@ -531,12 +618,11 @@ class _RemindersListPageState extends State<RemindersListPage>
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
-                    height: 70, // Tinggi tetap fleksibel, bisa disesuaikan
+                    height: 70,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final availableWidth = constraints.maxWidth;
-                        final itemWidth = (availableWidth - 32) /
-                            7; // Mengurangi padding horizontal (16 * 2)
+                        final itemWidth = (availableWidth - 32) / 7;
 
                         return ListView.builder(
                           scrollDirection: Axis.horizontal,
@@ -657,7 +743,7 @@ class _RemindersListPageState extends State<RemindersListPage>
                           final reminder = todayReminders[index];
                           final time = _formatTime(reminder['time']);
                           final color = reminder['label'] == 'To Do'
-                              ? Colors.blue[400] // Ubah ke warna biru
+                              ? Colors.blue[400]
                               : reminder['label'] == 'In Progress'
                                   ? Colors.orange[400]
                                   : Colors.green[400];
@@ -710,8 +796,9 @@ class _RemindersListPageState extends State<RemindersListPage>
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: GestureDetector(
-                                    onTap: () => _showEditReminderBottomSheet(
-                                        normalizedFocusedDay, reminder),
+                                    onTap: () =>
+                                        _showEditReminderBottomSheet(
+                                            normalizedFocusedDay, reminder),
                                     child: Container(
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
@@ -823,6 +910,7 @@ class _ReminderCreatePageState extends State<ReminderCreatePage> {
   final _taskController = TextEditingController();
   DateTime _selectedDay = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
+  final supabase = Supabase.instance.client;
 
   void _showTimePickerBottomSheet() {
     int hour = _selectedTime.hour;

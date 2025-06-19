@@ -1,8 +1,11 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:universal_html/html.dart' as html;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../theme/theme_provider.dart';
 import '../pages/auth/login_page.dart';
 
@@ -28,6 +31,34 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     _loadUserProfile();
   }
 
+  Future<String?> fetchUserProfilePicture() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return null;
+
+      // Get profile data including avatar_url
+      final response = await Supabase.instance.client
+          .from('profiles')
+          .select('avatar_url')
+          .eq('id', user.id)
+          .single();
+
+      final avatarUrl = response['avatar_url'] as String?;
+
+      if (avatarUrl == null) return null;
+
+      // Get the public URL for the avatar
+      final publicUrl = Supabase.instance.client.storage
+          .from('avatars')
+          .getPublicUrl(avatarUrl);
+
+      return publicUrl;
+    } catch (e) {
+      debugPrint('Error fetching profile picture: $e');
+      return null;
+    }
+  }
+
   Future<void> _loadUserProfile() async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
@@ -39,16 +70,19 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         // Fetch profile data from profiles table
         final response = await Supabase.instance.client
             .from('profiles')
-            .select('username, age, phone, bio, avatar_url')
+            .select('username, age, phone, bio')
             .eq('id', user.id)
             .single();
+
+        // Fetch profile picture
+        final profilePicUrl = await fetchUserProfilePicture();
 
         setState(() {
           _name = response['username'] ?? '';
           _age = response['age']?.toString() ?? '';
           _phone = response['phone'] ?? '';
           _bio = response['bio'] ?? '';
-          _profileImageUrl = response['avatar_url'];
+          _profileImageUrl = profilePicUrl;
           _isLoading = false;
         });
       }
@@ -142,7 +176,8 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                               radius: 30,
                               backgroundImage: _profileImageUrl != null
                                   ? NetworkImage(_profileImageUrl!)
-                                  : const AssetImage('assets/default_profile.png')
+                                  : const AssetImage(
+                                          'assets/default_profile.png')
                                       as ImageProvider,
                               child: _profileImageUrl == null
                                   ? const Icon(Icons.person, size: 30)
@@ -352,58 +387,124 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
 
   Future<void> _pickAndUploadImage() async {
     try {
-      final pickedFile = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 70,
-      );
-      
-      if (pickedFile != null) {
-        setState(() {
-          _isUploading = true;
-        });
+      if (kIsWeb) {
+        // Web implementation
+        final html.FileUploadInputElement input = html.FileUploadInputElement()
+          ..accept = 'image/*';
+        input.click();
 
-        final user = Supabase.instance.client.auth.currentUser;
-        if (user == null) return;
+        await input.onChange.first;
+        if (input.files?.isEmpty ?? true) return;
 
-        // Create unique filename
-        final fileExt = pickedFile.path.split('.').last;
-        final fileName = '${user.id}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
-        final filePath = 'avatars/$fileName';
+        final file = input.files!.first;
+        final reader = html.FileReader();
+        reader.readAsArrayBuffer(file);
 
-        // Upload to Supabase Storage
-        await Supabase.instance.client.storage
-            .from('avatars')
-            .upload(filePath, File(pickedFile.path));
+        await reader.onLoad.first;
+        final Uint8List? imageData = reader.result as Uint8List?;
 
-        // Get public URL
-        final imageUrl = Supabase.instance.client.storage
-            .from('avatars')
-            .getPublicUrl(filePath);
+        if (imageData != null) {
+          setState(() {
+            _isUploading = true;
+          });
 
-        setState(() {
-          _profileImageUrl = imageUrl;
-          _isUploading = false;
-        });
+          final user = Supabase.instance.client.auth.currentUser;
+          if (user == null) return;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile image uploaded successfully!'),
-            backgroundColor: Colors.green,
-          ),
+          // Create unique filename
+          final fileExt = file.name.split('.').last;
+          final fileName =
+              '${user.id}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+          final filePath = 'avatars/$fileName';
+
+          // Upload to Supabase Storage
+          await Supabase.instance.client.storage.from('avatars').uploadBinary(
+                filePath,
+                imageData,
+                fileOptions: FileOptions(
+                  contentType: file.type,
+                ),
+              );
+
+          // Get public URL
+          final imageUrl = Supabase.instance.client.storage
+              .from('avatars')
+              .getPublicUrl(filePath);
+
+          setState(() {
+            _profileImageUrl = imageUrl;
+            _isUploading = false;
+          });
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Profile image uploaded successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      } else {
+        // Mobile implementation
+        final pickedFile = await _picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 512,
+          maxHeight: 512,
+          imageQuality: 70,
         );
+
+        if (pickedFile != null) {
+          setState(() {
+            _isUploading = true;
+          });
+
+          final user = Supabase.instance.client.auth.currentUser;
+          if (user == null) return;
+
+          // Create unique filename
+          final fileExt = pickedFile.path.split('.').last;
+          final fileName =
+              '${user.id}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+          final filePath = 'avatars/$fileName';
+
+          // Upload to Supabase Storage
+          await Supabase.instance.client.storage
+              .from('avatars')
+              .upload(filePath, File(pickedFile.path));
+
+          // Get public URL
+          final imageUrl = Supabase.instance.client.storage
+              .from('avatars')
+              .getPublicUrl(filePath);
+
+          setState(() {
+            _profileImageUrl = imageUrl;
+            _isUploading = false;
+          });
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Profile image uploaded successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
       }
     } catch (e) {
       setState(() {
         _isUploading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to upload image: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to upload image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -452,7 +553,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       };
 
       Navigator.pop(context, updatedProfile);
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Profile updated successfully!'),

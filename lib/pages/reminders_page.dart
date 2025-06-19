@@ -89,11 +89,11 @@ class _RemindersListPageState extends State<RemindersListPage>
         ),
         title: Text(
           'Delete Confirmation',
-          style: Theme.of(context).dialogTheme.titleTextStyle,
+          style: Theme.of(context).textTheme.headlineSmall,
         ),
         content: Text(
           'Are you sure you want to delete this reminder?',
-          style: Theme.of(context).dialogTheme.contentTextStyle,
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
         actions: [
           TextButton(
@@ -150,31 +150,40 @@ class _RemindersListPageState extends State<RemindersListPage>
   }
 
   Future<void> _updateReminder(DateTime date, String id, String newTask, String newLabel, TimeOfDay newTime) async {
-    final normalizedDate = DateTime(date.year, date.month, date.day);
-    try {
-      await supabase.from('reminders').update({
-        'task': newTask,
-        'label': newLabel,
-        'is_completed': newLabel == 'Done',
-        'time': '${newTime.hour.toString().padLeft(2, '0')}:${newTime.minute.toString().padLeft(2, '0')}:00',
-      }).eq('id', id);
-      setState(() {
-        final reminder = _reminders[normalizedDate]?.firstWhere((r) => r['id'] == id);
-        if (reminder != null) {
-          reminder['task'] = newTask;
-          reminder['label'] = newLabel;
-          reminder['isCompleted'] = newLabel == 'Done';
-          reminder['time'] = newTime;
-        }
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update reminder: $e')),
-        );
+  final normalizedDate = DateTime(date.year, date.month, date.day);
+  final userId = supabase.auth.currentUser?.id;
+  if (userId == null) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User not authenticated')),
+      );
+    }
+    return;
+  }
+  try {
+    await supabase.from('reminders').update({
+      'task': newTask,
+      'label': newLabel,
+      'is_completed': newLabel == 'Done' ? true : false,
+      'time': '${newTime.hour.toString().padLeft(2, '0')}:${newTime.minute.toString().padLeft(2, '0')}:00',
+    }).eq('id', id).eq('user_id', userId);
+    setState(() {
+      final reminder = _reminders[normalizedDate]?.firstWhere((r) => r['id'] == id);
+      if (reminder != null) {
+        reminder['task'] = newTask;
+        reminder['label'] = newLabel;
+        reminder['isCompleted'] = newLabel == 'Done';
+        reminder['time'] = newTime;
       }
+    });
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update reminder: $e')),
+      );
     }
   }
+}
 
   Future<void> _addReminder(DateTime date, String task, TimeOfDay time) async {
     final normalizedDate = DateTime(date.year, date.month, date.day);
